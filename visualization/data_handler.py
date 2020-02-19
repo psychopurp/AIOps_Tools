@@ -62,4 +62,11 @@ if __name__=="__main__":
     dt=datetime_indexed(x,y)
     # Visualizer.scatter_graph(dt.index,dt)
     # print(dt)
-    diff_smooth(dt,60)
+    # print(dt[0])
+    # print(dt[1:2])
+    dt=pd.Series([0,4,8,12])
+    print(dt.get(0))
+    # dif=dt.diff().dropna()
+    # print(dt[dt>5])
+   
+    # diff_smooth(dt,60)
