@@ -1,5 +1,6 @@
 import pandas as pd
 from visualizer import Visualizer
+from process import diff_smooth,datetime_indexed
 
 
 
@@ -52,17 +53,13 @@ class DataHandler:
             value_list.append(value)
         return time_list,value_list
 
-    @staticmethod
-    def datetimeIndexed(time_list,value_list):
-        '''将数据变为Series类型'''
-        dta=pd.Series(value_list)
-        dta.index=pd.DatetimeIndex(time_list)
-        return dta
+
 
 
 if __name__=="__main__":
     dataHandler=DataHandler('./data/1/1_7days.txt')
     x,y=dataHandler.get_data()
-    dt=dataHandler.datetimeIndexed(x,y)
+    dt=datetime_indexed(x,y)
     # Visualizer.scatter_graph(dt.index,dt)
-    print(type(dt))
+    # print(dt)
+    diff_smooth(dt,60)
