@@ -1,6 +1,3 @@
-import pandas as pd
-from visualizer import Visualizer
-from process import diff_smooth,datetime_indexed
 
 
 
@@ -56,16 +53,16 @@ class DataHandler:
 
 
 
-if __name__=="__main__":
-    dataHandler=DataHandler('./data/1/1_7days.txt')
-    x,y=dataHandler.get_data()
-    dt=datetime_indexed(x,y)
-    # Visualizer.scatter_graph(dt.index,dt)
-    # print(dt)
-    # print(dt[0])
-    # print(dt[1:2])
-    dt=pd.Series([0,4,8,12])
-    print(dt.get(0))
+# if __name__=="__main__":
+#     dataHandler=DataHandler('./data/1/1_7days.txt')
+#     x,y=dataHandler.get_data()
+#     dt=datetime_indexed(x,y)
+#     # Visualizer.scatter_graph(dt.index,dt)
+#     # print(dt)
+#     # print(dt[0])
+#     # print(dt[1:2])
+#     dt=pd.Series([0,4,8,12])
+#     print(dt.get(0))
     # dif=dt.diff().dropna()
     # print(dt[dt>5])
    

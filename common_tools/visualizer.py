@@ -13,6 +13,7 @@ class Visualizer:
 
     @staticmethod
     def append(ts):
+        '''time_series'''
         trace=go.Scatter(
                     x=ts.index,
                     y=ts,
@@ -43,6 +44,4 @@ class Visualizer:
 
 if __name__=="__main__":
     print(Visualizer.plot_list)
-    Visualizer.plot_list.append(5)
-    Visualizer.draw()
     # print(Visualizer.plot_list)

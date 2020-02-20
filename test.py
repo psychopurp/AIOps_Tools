@@ -1,15 +1,19 @@
 
-import visualization
+import common_tools as ct
 
 
+def test(a):
+    b = a
+    b[0] = 'test'
+    print(a, id(a))
+    print(b, id(b))
+    return a
 
-def test(*args,**kwargs):
-    for i in args:
-        print(i)
-    print(kwargs)
-    for i in kwargs:
-        print(i)
 
-test(1,2,3,4,a='12',b='c')
-
-# print(a,b)
+if __name__ == "__main__":
+    data_handler = ct.DataHandler('./data/1/1_7days.txt')
+    x, y = data_handler.get_data()
+    dta = ct.date_to_series(x, y)
+    ts = ct.diff_smooth(dta)
+    # print(ts)
+    print(ts['2020-02-13 23:30'])
