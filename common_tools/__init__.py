@@ -1,7 +1,6 @@
 from .visualizer import Visualizer
 from .data_handler import DataHandler
-from .process import diff_smooth,date_to_series
-
+from .process import diff_smooth, date_to_series
 
 
 '''
