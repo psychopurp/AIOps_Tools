@@ -17,6 +17,10 @@ class Visualizer:
         go.Figure(data=Visualizer.plot_list).show()
 
     @staticmethod
+    def clear():
+        Visualizer.plot_list.clear()
+
+    @staticmethod
     def append(*ts):
         '''time_series'''
         for item in ts:
