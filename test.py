@@ -3,6 +3,7 @@ import os
 import common_tools as ct
 import plotly.offline as py
 import plotly.graph_objs as go
+from timeseries_predict.models import ARIMAModel
 
 
 def test(a):
@@ -15,17 +16,11 @@ def test(a):
 
 if __name__ == "__main__":
     # %%
-    print(dir(ct))
-    data_handler = ct.DataHandler('.././data/1/1_7days.txt')
-    x, y = data_handler.get_data()
-    dta = ct.date_to_series(x, y)
+    print(dir(ARIMAModel))
+    x, y = ct.DataHandler('../机器学习/data/1/1_7days.txt').get_data()
+    dta = ct.data_to_series(x, y)
+    dta = dta.resample('T').mean()
     ts = ct.diff_smooth(dta)
-    print(dir(py))
-
-    # print(ts)
-    print(ts['2020-02-13 23:30'])
-
-# %%
-print(os.getcwd())
-
-# %%
+    arima = ARIMAModel(ts, test_size=1440, predict_size=60*5)
+    # arima.train()
+    print(type(arima.train))

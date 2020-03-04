@@ -5,6 +5,8 @@ from statsmodels.tsa.arima_model import ARIMA
 import statsmodels.api as sm
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
+import datetime
+import pandas as pd
 
 
 class ARIMAModel:
@@ -14,28 +16,38 @@ class ARIMAModel:
     value 为 int
     '''
 
-    def __init__(self, ts, test_size=1440):
+    def __init__(self, ts, test_size=1440, predict_size=60):
+        '''
+        传入需要训练的数据
+        数据分成训练集和测试集
+        predict_size为预测时长 min
+        '''
         self.test_size = test_size
         self.ts = ts
+        self.train_set = ts[:-test_size if test_size > 0 else len(ts)]
+        self.predict_size = predict_size
 
     def decompose(self, period=1440):
         '''
-         将数据进行分解
+         将训练数据进行分解
          :param :period单位为minute
         '''
         decomposition = seasonal_decompose(
-            self.ts, period=1440, two_sided=False)
+            self.train_set, period=1440, two_sided=False)
         self.trend = decomposition.trend
+        self.trend.dropna(inplace=True)
         self.seasonal = decomposition.seasonal
-        self.redidual = decomposition.resid
+        self.residual = decomposition.resid
+        return decomposition
 
     def trend_model(self, order):
         '''
         对趋势部分单独用ARIMA模型做训练
+        order tuple(p,d,q)
         '''
-        self.trend.dropna(inplace=True)
-        train = self.trend[: self.trend.size - self.test_size]
-        self.trend_model = ARIMA(train, order).fit(method='css-mle')
+        # train = self.trend[: self.trend.size - self.test_size]
+        self.trend_model = ARIMA(self.trend, order).fit(
+            disp=-1, method='css-mle')
 
     def get_order(self, ts):
         '''
@@ -58,38 +70,67 @@ class ARIMAModel:
         result = adfuller(ts if ts else self.ts)
         return result[1] <= 0.05
 
-    def train(self, dta, x, y):
-        predict_data = []
-        if np.max(y) - np.min(y) == 0:
-            for i in range(0, self.predict_time):
-                predict_data.append(round(np.max(y), 2))
-            return predict_data
+    def predict(self):
+        '''
+        预测趋势新数据
 
-        """
-        for i in range(0, len(mydata_tmp)):
-            mydata_tmp[i] = math.log(mydata_tmp[i])
-        """
-        """
-        p为ARMA模型的参数，一般p去小于length/10的数
-        但是由于数据的问题，所以分情况设置
-        """
-        res = sm.tsa.arma_order_select_ic(
-            dta, max_ar=7, max_ma=0, ic=['bic'], trend='nc')
-        p = res.bic_min_order[0]
-        q = res.bic_min_order[1]
-        # 建立ARMA模型
-        # freq为时间序列的偏移量
-        try:
-            model_tmp = ARIMA(dta, order=(p, 1, q))
-            # method为css-mle
-            #model = model_tmp.fit(disp=-1)
-            model = model_tmp.fit(disp=-1, method='mle')
-            return model
-        except:
-            model_tmp = ARIMA(dta, order=(1, 1, 1))
-            model = model_tmp.fit(disp=-1, method='mle')
-            return model
+        '''
+        # 预测时间长度
+        n = self.predict_size
+        # 从训练数据的最后开始预测
+        lastTime = self.trend.index[-1]
+        start_index = lastTime
+        end_index = start_index+datetime.timedelta(minutes=n)
+        self.trend_predict = self.trend_model.predict(
+            start=start_index, end=end_index)
+        # self.add_season()
 
-    def predict(self, model, y):
-        predict_outcome = model.forecast(self.predict_time)
-        return predict_outcome[0]
+    def add_season(self):
+        '''
+        为预测出的趋势数据添加周期数据和残差数据
+        '''
+        values = []
+        low_conf_values = []
+        high_conf_values = []
+        d = self.residual.describe()
+        delta = d['75%'] - d['25%']
+        low_error, high_error = (d['25%'] - 1 * delta, d['75%'] + 1 * delta)
+        for i, t in enumerate(self.trend_predict):
+            trend_part = t
+            # 相同时间点的周期数据均值
+            season_part = self.seasonal[self.seasonal.index.time ==
+                                        self.trend_predict.index[i].time()].mean()
+
+            predict = trend_part+season_part
+            low_bound = predict+low_error
+            high_bound = predict + high_error
+
+            values.append(predict)
+            low_conf_values.append(low_bound)
+            high_conf_values.append(high_bound)
+
+        self.final_pred = pd.Series(
+            values, index=self.trend_predict.index, name='predict')
+        self.low_conf = pd.Series(
+            low_conf_values, index=self.trend_predict.index, name='low')
+        self.high_conf = pd.Series(
+            high_conf_values, index=self.trend_predict.index, name='high')
+        return (self.final_pred, self.low_conf, self.high_conf)
+
+    def train(self):
+        '''
+        训练全部流程
+        返回预测值 和阈值范围
+        '''
+        # 先将训练数据分解
+        self.decompose()
+        # 获取模型训练参数 (p,d,q)
+        order = self.get_order(self.trend)
+        print("模型参数为：{}".format(order))
+        # 训练趋势模型
+        self.trend_model(order)
+        # 预测
+        self.predict()
+        # 为预测出的趋势数据添加周期数据和残差数据
+        self.add_season()
+        return (self.final_pred, self.low_conf, self.high_conf)
