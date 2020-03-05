@@ -8,16 +8,18 @@ class ZScoreModel:
     目前适用于以天为单位的数据异常检测
     '''
 
-    def __init__(self, ts, window_size=10, days=7):
+    def __init__(self, ts, window_size=10, days=7, nFlag=5):
         '''
         :param 
         :ts为训练数据集pandas series
         :window_size 为抽样窗口大小 min
+        :nFlag为滞后系数 相当于每nFlag min重新计算一次参数
         '''
         self.ts = ts
         self.days = days
         self.window_size = window_size
         self.param = {}  # 训练后会获取参数
+        self.nFlag = nFlag
 
     def train(self, time):
         '''
@@ -38,16 +40,17 @@ class ZScoreModel:
         # print(train)
         param = {'time': time, 'mean': train.mean(), 'std': train.std()}
         self.param = param
-        print('计算参数 {}'.format(self.param))
+        # print('计算参数 {}'.format(self.param))
         return train
 
-    def get_z_score(self, ts, n=5):
+    def get_z_score(self, ts):
         '''
         :parma
         :ts 为检测数据集
         :n 为滞后系数，相当于每n分钟重新计算一次模型参数
         '''
         # 数据深拷贝
+        n = self.nFlag
         result = ts.copy(deep=True)
         for time in result.index:
             # 时间差

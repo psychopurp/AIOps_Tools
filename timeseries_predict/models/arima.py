@@ -46,8 +46,15 @@ class ARIMAModel:
         order tuple(p,d,q)
         '''
         # train = self.trend[: self.trend.size - self.test_size]
-        self.trend_model = ARIMA(self.trend, order).fit(
-            disp=-1, method='css-mle')
+        try:
+            self.trend_model = ARIMA(self.trend, order).fit(
+                disp=-1, method='css-mle')
+        except Exception as e:
+            print("模型训练失败 {}".format(e))
+            order = self.get_order(self.trend)
+            print("冲新获取参数 {}".format(order))
+            self.trend_model = ARIMA(self.trend, order).fit(
+                disp=-1, method='css-mle')
 
     def get_order(self, ts):
         '''
@@ -117,7 +124,7 @@ class ARIMAModel:
             high_conf_values, index=self.trend_predict.index, name='high')
         return (self.final_pred, self.low_conf, self.high_conf)
 
-    def train(self):
+    def train(self, order=None):
         '''
         训练全部流程
         返回预测值 和阈值范围
@@ -125,7 +132,10 @@ class ARIMAModel:
         # 先将训练数据分解
         self.decompose()
         # 获取模型训练参数 (p,d,q)
-        order = self.get_order(self.trend)
+        # order = self.get_order(self.trend)
+        if not order:
+            print("模型参数训练")
+            order = self.get_order(self.trend)
         print("模型参数为：{}".format(order))
         # 训练趋势模型
         self.trend_model(order)
