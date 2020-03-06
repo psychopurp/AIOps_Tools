@@ -7,6 +7,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 import datetime
 import pandas as pd
+from common.models import Project
 
 
 class ARIMAModel:
@@ -124,7 +125,7 @@ class ARIMAModel:
             high_conf_values, index=self.trend_predict.index, name='high')
         return (self.final_pred, self.low_conf, self.high_conf)
 
-    def train(self, order=None):
+    def train(self, source='', order=None):
         '''
         训练全部流程
         返回预测值 和阈值范围
@@ -136,6 +137,9 @@ class ARIMAModel:
         if not order:
             print("模型参数训练")
             order = self.get_order(self.trend)
+            project = Project.objects.get(table_name=source)
+            project.ARIMA_param = str(order)
+            project.save()
         print("模型参数为：{}".format(order))
         # 训练趋势模型
         self.trend_model(order)
