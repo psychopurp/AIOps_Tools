@@ -46,16 +46,9 @@ class ARIMAModel:
         对趋势部分单独用ARIMA模型做训练
         order tuple(p,d,q)
         '''
-        # train = self.trend[: self.trend.size - self.test_size]
-        try:
-            self.trend_model = ARIMA(self.trend, order).fit(
-                disp=-1, method='css-mle')
-        except Exception as e:
-            print("模型训练失败 {}".format(e))
-            order = self.get_order(self.trend)
-            print("冲新获取参数 {}".format(order))
-            self.trend_model = ARIMA(self.trend, order).fit(
-                disp=-1, method='css-mle')
+
+        self.trend_model = ARIMA(self.trend, order).fit(
+            disp=-1, method='css-mle')
 
     def get_order(self, ts):
         '''
@@ -134,15 +127,23 @@ class ARIMAModel:
         self.decompose()
         # 获取模型训练参数 (p,d,q)
         # order = self.get_order(self.trend)
+        project = Project.objects.get(table_name=source)
         if not order:
             print("模型参数训练")
             order = self.get_order(self.trend)
-            project = Project.objects.get(table_name=source)
             project.ARIMA_param = str(order)
-            project.save()
+
         print("模型参数为：{}".format(order))
         # 训练趋势模型
-        self.trend_model(order)
+        try:
+            self.trend_model(order)
+        except Exception as e:
+            print("模型训练失败 {}".format(e))
+            order = self.get_order(self.trend)
+            print("重新获取参数 {}".format(order))
+            project.ARIMA_param = str(order)
+            self.trend_model(order)
+        project.save()
         # 预测
         self.predict()
         # 为预测出的趋势数据添加周期数据和残差数据
