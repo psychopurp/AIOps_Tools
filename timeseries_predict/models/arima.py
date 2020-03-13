@@ -7,7 +7,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 import datetime
 import pandas as pd
-from dt_server.common.models import Project
+from common.models import Project
 
 
 class ARIMAModel:
