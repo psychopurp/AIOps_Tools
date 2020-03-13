@@ -7,7 +7,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 import datetime
 import pandas as pd
-from common.models import Project
+from dt_server.common.models import Project
 
 
 class ARIMAModel:
@@ -125,22 +125,26 @@ class ARIMAModel:
         '''
         # 先将训练数据分解
         self.decompose()
+        import logging
+
+        # 获取一个logger对象
+        logger = logging.getLogger(__name__)
         # 获取模型训练参数 (p,d,q)
         # order = self.get_order(self.trend)
         project = Project.objects.get(table_name=source)
         if not order:
-            print("模型参数训练")
+            logger.warning("模型参数训练")
             order = self.get_order(self.trend)
             project.ARIMA_param = str(order)
 
-        print("模型参数为：{}".format(order))
+        logger.warning("模型参数为：{}".format(order))
         # 训练趋势模型
         try:
             self.trend_model(order)
         except Exception as e:
-            print("模型训练失败 {}".format(e))
+            logger.warning("模型训练失败 {}".format(e))
             order = self.get_order(self.trend)
-            print("重新获取参数 {}".format(order))
+            logger.warning("重新获取参数 {}".format(order))
             project.ARIMA_param = str(order)
             self.trend_model(order)
         project.save()
