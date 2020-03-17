@@ -7,7 +7,6 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 import datetime
 import pandas as pd
-from common.models import Project
 
 
 class ARIMAModel:
@@ -17,18 +16,20 @@ class ARIMAModel:
     value 为 int
     '''
 
-    def __init__(self, ts, test_size=1440, predict_size=60):
+    def __init__(self, ts, test_size=1440, predict_size=60, period=1440):
         '''
         传入需要训练的数据
         数据分成训练集和测试集
+        并将数据进行分解
         predict_size为预测时长 min
         '''
         self.test_size = test_size
         self.ts = ts
         self.train_set = ts[:-test_size if test_size > 0 else len(ts)]
         self.predict_size = predict_size
+        self.__decompose(period=period)
 
-    def decompose(self, period=1440):
+    def __decompose(self, period=1440):
         '''
          将训练数据进行分解
          :param :period单位为minute
@@ -41,7 +42,7 @@ class ARIMAModel:
         self.residual = decomposition.resid
         return decomposition
 
-    def trend_model(self, order):
+    def __trend_model(self, order):
         '''
         对趋势部分单独用ARIMA模型做训练
         order tuple(p,d,q)
@@ -71,7 +72,7 @@ class ARIMAModel:
         result = adfuller(ts if ts else self.ts)
         return result[1] <= 0.05
 
-    def predict(self):
+    def __predict_trend(self):
         '''
         预测趋势新数据
 
@@ -86,7 +87,7 @@ class ARIMAModel:
             start=start_index, end=end_index)
         # self.add_season()
 
-    def add_season(self):
+    def __add_season(self):
         '''
         为预测出的趋势数据添加周期数据和残差数据
         '''
@@ -118,38 +119,36 @@ class ARIMAModel:
             high_conf_values, index=self.trend_predict.index, name='high')
         return (self.final_pred, self.low_conf, self.high_conf)
 
-    def train(self, source='', order=None):
+    def train(self, order=None):
         '''
-        训练全部流程
-        返回预测值 和阈值范围
+        训练出数据模型，并返回模型使用的参数
         '''
-        # 先将训练数据分解
-        self.decompose()
         import logging
 
         # 获取一个logger对象
         logger = logging.getLogger(__name__)
         # 获取模型训练参数 (p,d,q)
-        # order = self.get_order(self.trend)
-        project = Project.objects.get(table_name=source)
         if not order:
             logger.warning("模型参数训练")
             order = self.get_order(self.trend)
-            project.ARIMA_param = str(order)
 
-        logger.warning("模型参数为：{}".format(order))
+        logger.warning("模型参数为：{}  开始训练".format(order))
         # 训练趋势模型
         try:
-            self.trend_model(order)
+            self.__trend_model(order)
         except Exception as e:
             logger.warning("模型训练失败 {}".format(e))
+            self.ts.to_csv(
+                './log/result{}.csv'.format(datetime.datetime.now()))
             order = self.get_order(self.trend)
             logger.warning("重新获取参数 {}".format(order))
-            project.ARIMA_param = str(order)
-            self.trend_model(order)
-        project.save()
+            self.__trend_model(order)
+
+        return order
+
+    def predict(self):
         # 预测
-        self.predict()
+        self.__predict_trend()
         # 为预测出的趋势数据添加周期数据和残差数据
-        self.add_season()
+        self.__add_season()
         return (self.final_pred, self.low_conf, self.high_conf)
