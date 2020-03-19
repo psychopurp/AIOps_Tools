@@ -8,6 +8,10 @@ from statsmodels.tsa.stattools import adfuller
 import datetime
 import pandas as pd
 
+import logging
+# 获取一个logger对象
+logger = logging.getLogger(__name__)
+
 
 class ARIMAModel:
     '''
@@ -27,6 +31,7 @@ class ARIMAModel:
         self.ts = ts
         self.train_set = ts[:-test_size if test_size > 0 else len(ts)]
         self.predict_size = predict_size
+        self.d = 0  # n阶差分
         self.__decompose(period=period)
 
     def __decompose(self, period=1440):
@@ -46,10 +51,24 @@ class ARIMAModel:
         '''
         对趋势部分单独用ARIMA模型做训练
         order tuple(p,d,q)
+        返回训练成功的order
         '''
-
-        self.trend_model = ARIMA(self.trend, order).fit(
-            disp=-1, method='css-mle')
+        # TODO 之后如果需要则添加二阶差分
+        # 最多尝试三次 第二次进行一阶差分 第三次重新进行参数训练
+        for i in range(3):
+            try:
+                self.trend_model = ARIMA(self.trend, order).fit(
+                    disp=-1, method='css-mle')
+                self.d = order[1]
+                return order
+            except Exception as e:
+                logger.error("第{} 次模型训练失败 参数：{}".format(i, order))
+                # self.ts.to_csv(
+                #     './log/result{}.csv'.format(datetime.datetime.now()))
+                order = (order[0], 1, order[2])
+                if i == 1:
+                    order = self.get_order(self.trend)
+                continue
 
     def get_order(self, ts):
         '''
@@ -69,13 +88,12 @@ class ARIMAModel:
         #返回值依次为adf、pvalue、usedlag、nobs、critical values、icbest、regresults、resstore
         单位根统计量对应的p的值显著大于0.05，最终判断该序列是非平稳序列的（非平稳不一定不是白噪声）
         '''
-        result = adfuller(ts if ts else self.ts)
+        result = adfuller(ts)
         return result[1] <= 0.05
 
     def __predict_trend(self):
         '''
         预测趋势新数据
-
         '''
         # 预测时间长度
         n = self.predict_size
@@ -85,7 +103,18 @@ class ARIMAModel:
         end_index = start_index+datetime.timedelta(minutes=n)
         self.trend_predict = self.trend_model.predict(
             start=start_index, end=end_index)
-        # self.add_season()
+        if self.d > 0:
+            self.__diff_fix()
+
+    def __diff_fix(self):
+        '''差分后的数据还原'''
+        apd = pd.Series(
+            self.trend[-2], index=pd.DatetimeIndex([self.trend.index[-2]]))
+        logger.warning("last {} {} ".format(
+            self.trend.index[-1], self.trend_predict.index[0]))
+        self.trend_predict = self.trend_predict.append(apd).sort_index()
+        logger.warning("append {} ".format(self.trend_predict[:2]))
+        self.trend_predict = self.trend_predict.cumsum()
 
     def __add_season(self):
         '''
@@ -123,10 +152,6 @@ class ARIMAModel:
         '''
         训练出数据模型，并返回模型使用的参数
         '''
-        import logging
-
-        # 获取一个logger对象
-        logger = logging.getLogger(__name__)
         # 获取模型训练参数 (p,d,q)
         if not order:
             logger.warning("模型参数训练")
@@ -134,16 +159,8 @@ class ARIMAModel:
 
         logger.warning("模型参数为：{}  开始训练".format(order))
         # 训练趋势模型
-        try:
-            self.__trend_model(order)
-        except Exception as e:
-            logger.warning("模型训练失败 {}".format(e))
-            self.ts.to_csv(
-                './log/result{}.csv'.format(datetime.datetime.now()))
-            order = self.get_order(self.trend)
-            logger.warning("重新获取参数 {}".format(order))
-            self.__trend_model(order)
-
+        order = self.__trend_model(order)
+        logger.warning("模型训练成功 参数为：{}".format(order))
         return order
 
     def predict(self):
