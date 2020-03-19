@@ -110,10 +110,10 @@ class ARIMAModel:
         '''差分后的数据还原'''
         apd = pd.Series(
             self.trend[-2], index=pd.DatetimeIndex([self.trend.index[-2]]))
-        logger.warning("last {} {} ".format(
-            self.trend.index[-1], self.trend_predict.index[0]))
+        # logger.warning("last {} {} ".format(
+        #     self.trend.index[-1], self.trend_predict.index[0]))
         self.trend_predict = self.trend_predict.append(apd).sort_index()
-        logger.warning("append {} ".format(self.trend_predict[:2]))
+        # logger.warning("append {} ".format(self.trend_predict[:2]))
         self.trend_predict = self.trend_predict.cumsum()
 
     def __add_season(self):
